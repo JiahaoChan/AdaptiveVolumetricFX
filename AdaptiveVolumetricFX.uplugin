@@ -5,15 +5,15 @@
 	"FriendlyName": "AdaptiveVolumetricFX",
 	"Description": "",
 	"Category": "Other",
-	"CreatedBy": "TA.Jiahao.Chan",
-	"CreatedByURL": "",
+	"CreatedBy": "Technical Artist - Jiahao.Chan, Individual",
+	"CreatedByURL": "https://github.com/JiahaoChan/AdaptiveVolumetricFX",
 	"DocsURL": "",
 	"MarketplaceURL": "",
 	"SupportURL": "",
 	"CanContainContent": true,
 	"IsBetaVersion": false,
 	"IsExperimentalVersion": false,
-	"Installed": false,
+	"Installed": true,
 	"Modules": [
 		{
 			"Name": "AdaptiveVolumetricFX",

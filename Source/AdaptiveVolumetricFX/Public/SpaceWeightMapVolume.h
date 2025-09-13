@@ -4,7 +4,27 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Volume.h"
+
 #include "SpaceWeightMapVolume.generated.h"
+
+USTRUCT()
+struct FSpaceWeightEdge
+{
+	GENERATED_BODY()
+	
+	UPROPERTY()
+	int32 Index;
+	
+	FSpaceWeightEdge()
+	{
+		Index = INDEX_NONE;
+	}
+	
+	FSpaceWeightEdge(const int32& InIndex)
+	{
+		Index = InIndex;
+	}
+};
 
 USTRUCT()
 struct ADAPTIVEVOLUMETRICFX_API FSpaceWeightNode
@@ -16,6 +36,9 @@ struct ADAPTIVEVOLUMETRICFX_API FSpaceWeightNode
 	
 	UPROPERTY()
 	float Density;
+	
+	UPROPERTY()
+	TArray<FSpaceWeightEdge> AdjacencyList;
 	
 	FSpaceWeightNode()
 	{
@@ -35,29 +58,22 @@ struct ADAPTIVEVOLUMETRICFX_API FSpaceWeightMap
 {
 	GENERATED_BODY()
 	
-	/**
-	 * <WorldLocation, Density>
-	 */
 	UPROPERTY()
 	TArray<FSpaceWeightNode> SparseNodes;
-	
-	UPROPERTY()
-	TArray<float> AdjacencyMatrix;
 	
 	void Reset()
 	{
 		SparseNodes.Empty();
-		AdjacencyMatrix.Empty();
 	}
 	
 	bool IsValid() const { return SparseNodes.Num() > 0; }
 	
-	uint64 GetSize() const { return SparseNodes.Num() * sizeof(FSpaceWeightNode) + AdjacencyMatrix.Num() * sizeof(float); }
+	uint64 GetSize() const { return SparseNodes.Num() * sizeof(FSpaceWeightNode); }
 	
 	FString ToString() const
 	{
 		FString Result = FString::Printf(TEXT("Sparse Nodes: %d\n"), SparseNodes.Num());
-		Result += FString::Printf(TEXT("Size: %2f KB"), (double)GetSize() / 1024.0f);
+		Result += FString::Printf(TEXT("Size: %2f KB\n"), (double)GetSize() / 1024.0f);
 		return Result;
 	}
 };
@@ -87,6 +103,7 @@ public:
 	void BakeSpaceWeightMap();
 #endif
 	
+	FORCEINLINE const float& GetNodeWidth() const { return NodeWidth; }
 	FORCEINLINE const FSpaceWeightMap& GetSpaceWeightMap() const { return WeightMap; }
 };
 

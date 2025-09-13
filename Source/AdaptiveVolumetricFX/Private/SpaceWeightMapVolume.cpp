@@ -177,7 +177,6 @@ void ASpaceWeightMapVolume::BakeSpaceWeightMap()
 		FScopedSlowTask LinkTask(WeightMap.SparseNodes.Num() + 1, LOCTEXT("LinkAdjacentNode_Title", "连接邻接节点..."));
 		LinkTask.MakeDialog();
 		LinkTask.EnterProgressFrame(1.0f, FText::Format(LOCTEXT("LinkAdjacentNode_Progress", "连接邻接节点: {0} / {1}"), 0, WeightMap.SparseNodes.Num() + 1));
-		WeightMap.AdjacencyMatrix.Init(-1.0f, WeightMap.SparseNodes.Num() * WeightMap.SparseNodes.Num());
 		for (int32 i = 0; i < WeightMap.SparseNodes.Num(); i++)
 		{
 			LinkTask.EnterProgressFrame(1.0f, FText::Format(LOCTEXT("LinkAdjacentNode_Progress", "连接邻接节点: {0} / {1}"), i + 1, WeightMap.SparseNodes.Num() + 1));
@@ -189,7 +188,7 @@ void ASpaceWeightMapVolume::BakeSpaceWeightMap()
                 {
                 	if (i != j && AdjacencyNodeLocation.Equals(WeightMap.SparseNodes[j].Location))
                 	{
-                		WeightMap.AdjacencyMatrix[i * WeightMap.SparseNodes.Num() + j] = 1.0f;
+                		WeightMap.SparseNodes[i].AdjacencyList.Add(FSpaceWeightEdge(j));
                 		break;
                 	}
                 }

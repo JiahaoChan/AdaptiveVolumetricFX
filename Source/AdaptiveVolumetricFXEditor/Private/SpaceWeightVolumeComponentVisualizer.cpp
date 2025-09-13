@@ -19,36 +19,35 @@ void FSpaceWeightVolumeComponentVisualizer::DrawVisualization(const UActorCompon
                 {
                 	if (DebugVolume->EncompassesPoint(Node.Location))
                 	{
-
-                		/*
                 		DrawWireSphere(
 							PDI,
 							Node.Location,
 							FMath::Lerp(FLinearColor::Green, FLinearColor::Red, Node.Density),
-							10.0f,
-							24,
-							SDPG_World);
-                		*/
-                		DrawWireStar(
-                			PDI,
-                			Node.Location,
-                			10.0f,
-                			FMath::Lerp(FLinearColor::Green, FLinearColor::Red, Node.Density),
-							SDPG_World);
+							5.0f,
+							16,
+							SDPG_World,
+							1.0f);
+                		for (const FSpaceWeightEdge& Edge : Node.AdjacencyList)
+                		{
+                			if (!SpaceWeightMap.SparseNodes.IsValidIndex(Edge.Index) || !DebugVolume->EncompassesPoint(SpaceWeightMap.SparseNodes[Edge.Index].Location))
+                			{
+                				continue;
+                			}
+                			FTransform EdgeTransform = FTransform::Identity;
+                			FVector Direction = SpaceWeightMap.SparseNodes[Edge.Index].Location - Node.Location;
+                			Direction.Normalize();
+                			EdgeTransform.SetRotation(Direction.ToOrientationQuat());
+                			FVector OffsetDirection = FVector(Direction.Z, Direction.X, Direction.Y);
+                			EdgeTransform.SetLocation(Node.Location + Direction * DebugVolume->Volume->GetNodeWidth() * 0.1f + OffsetDirection * 4.0f);
+                			DrawDirectionalArrow(
+                				PDI,
+                				EdgeTransform.ToMatrixNoScale(),
+                				FLinearColor(0.1f, 0.1f, 0.1f),
+                				DebugVolume->Volume->GetNodeWidth() * 0.8f,
+                				4.0f,
+                				SDPG_Foreground);
+                		}
                 	}
-                	/*
-                	float Distance = FVector::Distance(Node.Location, View->ViewLocation);
-                	if (Distance <= 1000.0f && Distance > 200.0f)
-                	{
-                		DrawWireSphere(
-                			PDI,
-                			Node.Location,
-                			FMath::Lerp(FLinearColor::Green, FLinearColor::Red, Node.Density),
-                			10.0f,
-                			24,
-                			SDPG_World);
-                	}
-                	*/
                 }
 			}
 		}
