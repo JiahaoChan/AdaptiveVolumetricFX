@@ -31,7 +31,7 @@ struct FSpaceWeightEdge
 };
 
 USTRUCT()
-struct ADAPTIVEVOLUMETRICFX_API FSpaceWeightNode
+struct FSpaceWeightNode
 {
 	GENERATED_BODY()
 	
@@ -70,16 +70,12 @@ struct ADAPTIVEVOLUMETRICFX_API FSpaceWeightMap
 		SparseNodes.Empty();
 	}
 	
-	bool IsValid() const { return SparseNodes.Num() > 0; }
+	FORCEINLINE bool IsValid() const { return SparseNodes.Num() > 0; }
+	FORCEINLINE uint64 GetSize() const { return SparseNodes.Num() * sizeof(FSpaceWeightNode); }
 	
-	uint64 GetSize() const { return SparseNodes.Num() * sizeof(FSpaceWeightNode); }
+	FString ToString() const;
 	
-	FString ToString() const
-	{
-		FString Result = FString::Printf(TEXT("Sparse Nodes: %d\n"), SparseNodes.Num());
-		Result += FString::Printf(TEXT("Size: %2f KB\n"), (double)GetSize() / 1024.0f);
-		return Result;
-	}
+	int32 GetNearestNode(const FVector& QueryPoint) const;
 };
 
 UCLASS(HideCategories=("HLOD", "", "Tags", "Cooking", "Replication", "Networking", "WorldPartition", "LevelInstance"))
@@ -94,9 +90,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Space Weight Map Volume")
 	float NodeWidth;
 	
-	UPROPERTY(DuplicateTransient)
+	UPROPERTY(NonPIEDuplicateTransient)
 	FSpaceWeightMap WeightMap;
-	
+		
 public:
 	ASpaceWeightMapVolume();
 	
@@ -119,20 +115,19 @@ class USpaceWeightMapVisualizeComponent : public UActorComponent
 {
 	GENERATED_BODY()
 };
+#endif
 
-UCLASS(HideCategories=("BrushSettings", "HLOD", "", "Tags", "Cooking", "Replication", "Networking", "WorldPartition", "LevelInstance"), MinimalAPI)
+UCLASS(HideCategories=("BrushSettings", "HLOD", "Collision", "Tags", "Cooking", "Replication", "Networking", "WorldPartition", "LevelInstance", "Actor", "DataLayers"), MinimalAPI)
 class ASpaceWeightMapDebugVolume : public AVolume
 {
 	GENERATED_BODY()
 	
 protected:
+#if WITH_EDITORONLY_DATA
 	UPROPERTY()
 	TObjectPtr<USpaceWeightMapVisualizeComponent> VisualizeComponent;
+#endif
 	
 public:
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Space Weight Map Volume")
-	TWeakObjectPtr<ASpaceWeightMapVolume> Volume;
-	
 	ASpaceWeightMapDebugVolume();
 };
-#endif

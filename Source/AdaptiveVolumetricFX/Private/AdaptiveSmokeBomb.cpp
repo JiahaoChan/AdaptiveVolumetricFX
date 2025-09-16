@@ -1,0 +1,106 @@
+// Fill out your copyright notice in the Description page of Project Settings.
+
+#include "AdaptiveSmokeBomb.h"
+
+#include "Components/InstancedStaticMeshComponent.h"
+#include "EngineUtils.h"
+
+#include "SpaceWeightMapVolume.h"
+
+AAdaptiveSmokeBomb::AAdaptiveSmokeBomb()
+{
+	PrimaryActorTick.bCanEverTick = false;
+	
+	MeshComponent = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("MeshComponent"));
+	MeshComponent->SetupAttachment(RootComponent);
+	
+	SpreadWeight = 10.0f;
+}
+
+void AAdaptiveSmokeBomb::BeginPlay()
+{
+	Super::BeginPlay();
+}
+
+void AAdaptiveSmokeBomb::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+}
+
+void AAdaptiveSmokeBomb::Explode()
+{
+	ExplodeLayers.Reset();
+	for (TActorIterator<ASpaceWeightMapVolume> It(GetWorld()); It; ++It)
+	{
+		if (*It)
+		{
+			const FSpaceWeightMap& SpaceWeightMap = (*It)->GetSpaceWeightMap();
+			int32 FirstNode = SpaceWeightMap.GetNearestNode(GetActorLocation());
+			if (FirstNode != INDEX_NONE && SpaceWeightMap.SparseNodes.IsValidIndex(FirstNode))
+			{
+				TSet<int32> AllNodes;
+				AllNodes.Add(FirstNode);
+				
+				FExplodeLayer FirstLayer;
+				FirstLayer.Nodes.Add(SpaceWeightMap.SparseNodes[FirstNode].Location);
+				ExplodeLayers.Add(FirstLayer);
+				
+				float RemainWeight = SpreadWeight;
+				TQueue<int32> NodeQueue;
+				NodeQueue.Enqueue(FirstNode);
+				while (RemainWeight > 0.0f)
+				{
+					if (NodeQueue.IsEmpty())
+					{
+						break;
+					}
+					TArray<int32> NextLayerNodes;
+					while(!NodeQueue.IsEmpty())
+					{
+						bool bHasConsumedAllWeight = false;
+						int32 CurrentNode = INDEX_NONE;
+						if (NodeQueue.Dequeue(CurrentNode))
+						{
+							if (CurrentNode != INDEX_NONE && SpaceWeightMap.SparseNodes.IsValidIndex(CurrentNode))
+							{
+								for (const FSpaceWeightEdge& Edge : SpaceWeightMap.SparseNodes[CurrentNode].AdjacencyList)
+                                {
+                                	if (Edge.Index != INDEX_NONE && SpaceWeightMap.SparseNodes.IsValidIndex(Edge.Index))
+                                	{
+                                		if (!AllNodes.Contains(Edge.Index))
+                                		{
+                                			NextLayerNodes.Add(Edge.Index);
+                                			AllNodes.Add(Edge.Index);
+                                			RemainWeight -= 1.0f;
+                                			if (RemainWeight <= 0.0f)
+                                			{
+                                				bHasConsumedAllWeight = true;
+                                				break;
+                                			}
+                                		}
+                                	}
+                                }
+							}
+						}
+						if (bHasConsumedAllWeight)
+						{
+							break;
+						}
+					}
+					FExplodeLayer NextLayer;
+					for (const int32 NextNode : NextLayerNodes)
+					{
+						NodeQueue.Enqueue(NextNode);
+						NextLayer.Nodes.Add(SpaceWeightMap.SparseNodes[NextNode].Location);
+					}
+					if (NextLayer.Nodes.Num() > 0)
+					{
+						ExplodeLayers.Add(NextLayer);
+					}
+				}
+				break;
+			}
+		}
+	}
+	ExplodeWithAnim(0);
+}

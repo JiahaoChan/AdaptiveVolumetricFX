@@ -12,6 +12,29 @@
 
 #define LOCTEXT_NAMESPACE "AdaptiveVolumetricFX"
 
+FString FSpaceWeightMap::ToString() const
+{
+	FString Result = FString::Printf(TEXT("Sparse Nodes: %d\n"), SparseNodes.Num());
+	Result += FString::Printf(TEXT("Size: %2f KB\n"), (double)GetSize() / 1024.0f);
+	return Result;
+}
+
+int32 FSpaceWeightMap::GetNearestNode(const FVector& QueryPoint) const
+{
+	int32 Index = INDEX_NONE;
+	float NearestDistance = UE_MAX_FLT;
+	for (int32 i = 0; i < SparseNodes.Num(); i++)
+	{
+		float Distance = FVector::Distance(SparseNodes[i].Location, QueryPoint);
+		if (Distance < NearestDistance)
+		{
+			NearestDistance = Distance;
+			Index = i;
+		}
+	}
+	return Index;
+}
+
 ASpaceWeightMapVolume::ASpaceWeightMapVolume()
 {
 	bEnableAutoLODGeneration = false;
@@ -186,13 +209,26 @@ void ASpaceWeightMapVolume::BakeSpaceWeightMap()
 			LinkTask.EnterProgressFrame(1.0f, FText::Format(LOCTEXT("LinkAdjacentNode_Progress", "连接邻接节点: {0} / {1}"), i + 1, WeightMap.SparseNodes.Num() + 1));
 			for (uint8 Direction = 0; Direction < 6; Direction++)
 			{
-				FVector DirectionVector =  GetDirectionVector(Direction);
+				FVector DirectionVector = GetDirectionVector(Direction);
 				FVector AdjacencyNodeLocation = WeightMap.SparseNodes[i].Location + DirectionVector * NodeWidth;
 				for (int32 j = 0; j < WeightMap.SparseNodes.Num(); j++)
                 {
                 	if (i != j && AdjacencyNodeLocation.Equals(WeightMap.SparseNodes[j].Location))
                 	{
-                		WeightMap.SparseNodes[i].AdjacencyList.Add(FSpaceWeightEdge(j));
+                		FHitResult HitResult;
+                		if (!UKismetSystemLibrary::LineTraceSingleForObjects(
+                			this,
+                			WeightMap.SparseNodes[i].Location,
+                			WeightMap.SparseNodes[j].Location,
+                			BlockNodeObjectTypes,
+                			false,
+                			IgnoreActors,
+                			EDrawDebugTrace::None,
+                			HitResult,
+                			true))
+                		{
+                			WeightMap.SparseNodes[i].AdjacencyList.Add(FSpaceWeightEdge(j));
+                		}
                 		break;
                 	}
                 }
@@ -208,15 +244,17 @@ void ASpaceWeightMapVolume::BakeSpaceWeightMap()
 }
 #endif
 
-#if WITH_EDITORONLY_DATA
 ASpaceWeightMapDebugVolume::ASpaceWeightMapDebugVolume()
 {
 	bEnableAutoLODGeneration = false;
 	bIsEditorOnlyActor = true;
+#if WITH_EDITORONLY_DATA
 	bIsSpatiallyLoaded = false;
+#endif
 	
 	GetBrushComponent()->SetCollisionEnabled(ECollisionEnabled::Type::NoCollision);
 	
+#if WITH_EDITORONLY_DATA
 	VisualizeComponent = CreateDefaultSubobject<USpaceWeightMapVisualizeComponent>(TEXT("VisualizeComponent"));
-}
 #endif
+}
