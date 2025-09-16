@@ -1,3 +1,9 @@
+/**
+ * Plugin AdaptiveVolumetricFX
+ *		Create interactive Volumetric Clouds, Volumetric Fog and other FX.
+ * Copyright Technical Artist - Jiahao.Chan, Individual. All Rights Reserved.
+ */
+
 #include "MySimpleComputeShader.h"
 
 #include "CoreMinimal.h"
@@ -39,10 +45,6 @@
 #include "CanvasTypes.h"
 #include "MaterialShader.h"
 #include "RHIGPUReadback.h"
-
-#define NUM_THREADS_MySimpleComputeShader_X 1
-#define NUM_THREADS_MySimpleComputeShader_Y 1
-#define NUM_THREADS_MySimpleComputeShader_Z 1
 
 DECLARE_STATS_GROUP(TEXT("MySimpleComputeShader"), STATGROUP_MySimpleComputeShader, STATCAT_Advanced);
 DECLARE_CYCLE_STAT(TEXT("MySimpleComputeShader Execute"), STAT_MySimpleComputeShader_Execute, STATGROUP_MySimpleComputeShader);
@@ -106,9 +108,9 @@ public:
 		
 		const FPermutationDomain PermutationVector(Parameters.PermutationId);
 		
-		OutEnvironment.SetDefine(TEXT("THREADS_X"), NUM_THREADS_MySimpleComputeShader_X);
-		OutEnvironment.SetDefine(TEXT("THREADS_Y"), NUM_THREADS_MySimpleComputeShader_Y);
-		OutEnvironment.SetDefine(TEXT("THREADS_Z"), NUM_THREADS_MySimpleComputeShader_Z);
+		OutEnvironment.SetDefine(TEXT("NUMTHREADSX"), 8);
+		OutEnvironment.SetDefine(TEXT("NUMTHREADSY"), 8);
+		OutEnvironment.SetDefine(TEXT("NUMTHREADSZ"), 1);
 		
 		if (PermutationVector.Get< FMySimpleComputeShader_Perm_TEST >() != 0)
 		{
@@ -160,7 +162,7 @@ void FMySimpleComputeShaderInterface::DispatchRenderThread(FRHICommandListImmedi
 			FRDGTextureRef OutputTextureRDG = GraphBuilder.RegisterExternalTexture(CreateRenderTarget(TextureResource->GetTexture2DRHI(), TEXT("SDFTexture")));
 			PassParameters->SDFTexture = GraphBuilder.CreateUAV(OutputTextureRDG);
 			
-			FIntVector GroupCount = FComputeShaderUtils::GetGroupCount(FIntVector(Params.X, Params.Y, Params.Z), FComputeShaderUtils::kGolden2DGroupSize);
+			FIntVector GroupCount = FComputeShaderUtils::GetGroupCount(FIntVector(8, 8, 1), FComputeShaderUtils::kGolden2DGroupSize);
 			GraphBuilder.AddPass(
 				RDG_EVENT_NAME("ExecuteMySimpleComputeShader"),
 				PassParameters,

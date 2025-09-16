@@ -1,4 +1,4 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+// Copyright Technical Artist - Jiahao.Chan, Individual. All Rights Reserved.
 
 #include "/Engine/Private/Common.ush" 
 #include "/Engine/Public/Platform.ush"
@@ -65,7 +65,7 @@ float Circular(float A, float B, float K)
 }
 //~ End SDF Blend SMin Function
 
-[numthreads(THREADS_X, THREADS_Y, THREADS_Z)]
+[numthreads(NUMTHREADSX, NUMTHREADSY, 1)]
 void Main(
     uint3 DispatchThreadId : SV_DispatchThreadID,
     uint GroupIndex : SV_GroupIndex )

@@ -1,4 +1,8 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+/**
+ * Plugin AdaptiveVolumetricFX
+ *		Create interactive Volumetric Clouds, Volumetric Fog and other FX.
+ * Copyright Technical Artist - Jiahao.Chan, Individual. All Rights Reserved.
+ */
 
 #pragma once
 

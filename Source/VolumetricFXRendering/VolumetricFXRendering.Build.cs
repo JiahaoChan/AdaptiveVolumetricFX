@@ -1,4 +1,4 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+// Copyright Technical Artist - Jiahao.Chan, Individual. All Rights Reserved.
 
 using UnrealBuildTool;
 

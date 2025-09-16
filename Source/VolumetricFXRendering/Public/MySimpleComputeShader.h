@@ -1,3 +1,9 @@
+/**
+ * Plugin AdaptiveVolumetricFX
+ *		Create interactive Volumetric Clouds, Volumetric Fog and other FX.
+ * Copyright Technical Artist - Jiahao.Chan, Individual. All Rights Reserved.
+ */
+
 #pragma once
 
 #include "CoreMinimal.h"
@@ -11,11 +17,6 @@ struct VOLUMETRICFXRENDERING_API FVolumetircFXSDFCSParams
 {
 	GENERATED_BODY()
 	
-	int32 X;
-	int32 Y;
-	int32 Z;
-	
-	TArray<int32> Input;
 	int32 Output;
 	
 	// Input
@@ -29,10 +30,6 @@ struct VOLUMETRICFXRENDERING_API FVolumetircFXSDFCSParams
 	
 	FVolumetircFXSDFCSParams()
 	{
-		X = 1;
-		Y = 1;
-		Z = 1;
-		
 		Output = 0;
 		
 		VoxelCount = 0;
@@ -85,11 +82,11 @@ public:
 	virtual void Activate() override
 	{
 		FVolumetircFXSDFCSParams Params;
-		Params.X = 1;
-		Params.Y = 1;
-		Params.Z = 1;
-		Params.Input.Add(Arg1);
-		Params.Input.Add(Arg2);
+		Params.VoxelPointLocation = VoxelPointLocation;
+		Params.BoundsOrigin = BoundsOrigin;
+		Params.BoundsSize = BoundsSize;
+		Params.VoxelCount = VoxelCount;
+		
 		Params.SDFTexture = SDFRenderTarget;
 		
 		FMySimpleComputeShaderInterface::Dispatch(Params, [this](int OutputVal)
@@ -104,13 +101,14 @@ public:
 	UFUNCTION(BlueprintCallable, meta = (BlueprintInternalUseOnly = "true", Category = "ComputeShader", WorldContext = "WorldContextObject"))
 	static UMySimpleComputeShaderLibrary_AsyncExecution* ExecuteBaseComputeShader(
 		UObject* WorldContextObject,
-		int32 Arg1,
-		int32 Arg2,
+		int32 VoxelCount,
+		TArray<FVector> VoxelPointLocation,
+		FVector BoundsOrigin,
+		float BoundsSize,
 		UTextureRenderTarget2D* SDFRenderTarget)
 	{
 		UMySimpleComputeShaderLibrary_AsyncExecution* Action = NewObject<UMySimpleComputeShaderLibrary_AsyncExecution>();
-		Action->Arg1 = Arg1;
-		Action->Arg2 = Arg2;
+		
 		Action->SDFRenderTarget = SDFRenderTarget;
 		Action->RegisterWithGameInstance(WorldContextObject);
 		return Action;
@@ -119,7 +117,10 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FOnMySimpleComputeShaderLibrary_AsyncExecutionCompleted Completed;
 	
-	int32 Arg1;
-	int32 Arg2;
+	int32 VoxelCount;
+	TArray<FVector> VoxelPointLocation;
+	FVector BoundsOrigin;
+	float BoundsSize;
+	
 	TObjectPtr<UTextureRenderTarget2D> SDFRenderTarget;
 };
