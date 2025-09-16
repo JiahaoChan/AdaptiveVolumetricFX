@@ -21,7 +21,7 @@ struct VOLUMETRICFXRENDERING_API FVolumetircFXSDFCSParams
 	
 	// Input
 	int32 VoxelCount;
-	TArray<FVector> VoxelPointLocation;
+	TArray<FVector3f> VoxelPointLocation;
 	FVector BoundsOrigin;
 	float BoundsSize;
 	
@@ -82,7 +82,7 @@ public:
 	virtual void Activate() override
 	{
 		FVolumetircFXSDFCSParams Params;
-		Params.VoxelPointLocation = VoxelPointLocation;
+		//Params.VoxelPointLocation = VoxelPointLocation;
 		Params.BoundsOrigin = BoundsOrigin;
 		Params.BoundsSize = BoundsSize;
 		Params.VoxelCount = VoxelCount;

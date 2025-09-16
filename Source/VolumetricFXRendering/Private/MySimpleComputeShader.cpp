@@ -84,7 +84,6 @@ public:
 		
 		// SHADER_PARAMETER_STRUCT_REF(FMyCustomStruct, MyCustomStruct)
 		
-		SHADER_PARAMETER_RDG_BUFFER_SRV(Buffer<int>, Input)
 		SHADER_PARAMETER_RDG_BUFFER_UAV(RWBuffer<int>, Output)
 		
 		SHADER_PARAMETER(uint32, VoxelCount)
@@ -143,24 +142,32 @@ void FMySimpleComputeShaderInterface::DispatchRenderThread(FRHICommandListImmedi
 		if (ComputeShader.IsValid())
 		{
 			FMySimpleComputeShader::FParameters* PassParameters = GraphBuilder.AllocParameters<FMySimpleComputeShader::FParameters>();
-			
+			/*
 			const void* RawData = (void*)Params.Input.GetData();
 			int NumInputs = Params.Input.Num();
 			int InputSize = sizeof(int32);
 			
 			FRDGBufferRef InputBuffer = CreateUploadBuffer(GraphBuilder, TEXT("InputBuffer"), InputSize, NumInputs, RawData, InputSize * NumInputs);
 			PassParameters->Input = GraphBuilder.CreateSRV(FRDGBufferSRVDesc(InputBuffer, PF_R32_SINT));
+			*/
 			
 			FRDGBufferRef OutputBuffer = GraphBuilder.CreateBuffer(FRDGBufferDesc::CreateBufferDesc(sizeof(int32), 1), TEXT("OutputBuffer"));
 			PassParameters->Output = GraphBuilder.CreateUAV(FRDGBufferUAVDesc(OutputBuffer, PF_R32_SINT));
 			
-			PassParameters->BoundsOrigin = FVector3f(0.0f, 0.0f, 0.0f);
-			PassParameters->BoundsSize = 100.0f;
+			const void* RawData = (void*)Params.VoxelPointLocation.GetData();
+			uint32 NumInputs = Params.VoxelPointLocation.Num();
+			uint32 InputSize = sizeof(FVector3f);
+			FRDGBufferRef InputBuffer = CreateUploadBuffer(GraphBuilder, TEXT("InputBuffer"), InputSize, NumInputs, RawData, InputSize * NumInputs);
+			PassParameters->VoxelPointLocation = GraphBuilder.CreateSRV(FRDGBufferSRVDesc(InputBuffer));
+			
+			PassParameters->VoxelCount = Params.VoxelPointLocation.Num();
+			PassParameters->BoundsOrigin = FVector3f(Params.BoundsOrigin);
+			PassParameters->BoundsSize = Params.BoundsSize;
 			
 			FTextureResource* TextureResource = Params.SDFTexture->GetResource();
 			check(TextureResource);
-			FRDGTextureRef OutputTextureRDG = GraphBuilder.RegisterExternalTexture(CreateRenderTarget(TextureResource->GetTexture2DRHI(), TEXT("SDFTexture")));
-			PassParameters->SDFTexture = GraphBuilder.CreateUAV(OutputTextureRDG);
+			FRDGTextureRef SDFTextureRDG = GraphBuilder.RegisterExternalTexture(CreateRenderTarget(TextureResource->GetTexture2DRHI(), TEXT("VolumetricFXSDFTexture")));
+			PassParameters->SDFTexture = GraphBuilder.CreateUAV(SDFTextureRDG);
 			
 			FIntVector GroupCount = FComputeShaderUtils::GetGroupCount(FIntVector(8, 8, 1), FComputeShaderUtils::kGolden2DGroupSize);
 			GraphBuilder.AddPass(
@@ -172,6 +179,7 @@ void FMySimpleComputeShaderInterface::DispatchRenderThread(FRHICommandListImmedi
 				FComputeShaderUtils::Dispatch(RHICmdList, ComputeShader, *PassParameters, GroupCount);
 			});
 			
+			/*
 			FRHIGPUBufferReadback* GPUBufferReadback = new FRHIGPUBufferReadback(TEXT("ExecuteMySimpleComputeShaderOutput"));
 			AddEnqueueCopyPass(GraphBuilder, GPUBufferReadback, OutputBuffer, 0u);
 			
@@ -185,7 +193,10 @@ void FMySimpleComputeShaderInterface::DispatchRenderThread(FRHICommandListImmedi
 					GPUBufferReadback->Unlock();
 					AsyncTask(ENamedThreads::GameThread, [AsyncCallback, OutVal]()
 						{
-							AsyncCallback(OutVal);
+							if (AsyncCallback.IsSet())
+							{
+								AsyncCallback(OutVal);
+							}
 						});
 					delete GPUBufferReadback;
 				}
@@ -202,6 +213,7 @@ void FMySimpleComputeShaderInterface::DispatchRenderThread(FRHICommandListImmedi
 				{
 					RunnerFunc(RunnerFunc);
 				});
+			*/
 		}
 		else
 		{

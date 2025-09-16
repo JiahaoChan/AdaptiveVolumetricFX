@@ -3,7 +3,6 @@
 #include "/Engine/Private/Common.ush" 
 #include "/Engine/Public/Platform.ush"
 
-Buffer<int> Input;
 RWBuffer<int> Output;
 
 // Input

@@ -1,4 +1,8 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+/**
+ * Plugin AdaptiveVolumetricFX
+ *		Create interactive Volumetric Clouds, Volumetric Fog and other FX.
+ * Copyright Technical Artist - Jiahao.Chan, Individual. All Rights Reserved.
+ */
 
 #pragma once
 
@@ -30,6 +34,9 @@ protected:
 	
 	UPROPERTY(BlueprintReadWrite, Category = "Smoke Bomb")
 	TArray<FExplodeLayer> ExplodeLayers;
+	
+	UPROPERTY(Transient, DuplicateTransient)
+	TObjectPtr<UTextureRenderTarget2D> SmokeSDFTexture;
 	
 public:
 	AAdaptiveSmokeBomb();

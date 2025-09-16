@@ -1,10 +1,16 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+/**
+ * Plugin AdaptiveVolumetricFX
+ *		Create interactive Volumetric Clouds, Volumetric Fog and other FX.
+ * Copyright Technical Artist - Jiahao.Chan, Individual. All Rights Reserved.
+ */
 
 #include "AdaptiveSmokeBomb.h"
 
 #include "Components/InstancedStaticMeshComponent.h"
 #include "EngineUtils.h"
+#include "Engine/TextureRenderTarget2D.h"
 
+#include "MySimpleComputeShader.h"
 #include "SpaceWeightMapVolume.h"
 
 AAdaptiveSmokeBomb::AAdaptiveSmokeBomb()
@@ -15,6 +21,8 @@ AAdaptiveSmokeBomb::AAdaptiveSmokeBomb()
 	MeshComponent->SetupAttachment(RootComponent);
 	
 	SpreadWeight = 10.0f;
+	
+	SmokeSDFTexture = nullptr;
 }
 
 void AAdaptiveSmokeBomb::BeginPlay()
@@ -102,5 +110,35 @@ void AAdaptiveSmokeBomb::Explode()
 			}
 		}
 	}
-	ExplodeWithAnim(0);
+	
+	{
+		TArray<FVector3f> AllNodes;
+		for (const FExplodeLayer& Layer : ExplodeLayers)
+		{
+			for (const FVector& Node : Layer)
+			{
+				AllNodes.Add(FVector3f(Node));
+			}
+		}
+		if (!SmokeSDFTexture)
+		{
+			SmokeSDFTexture = NewObject<UTextureRenderTarget2D>(this);
+			check(SmokeSDFTexture);
+			SmokeSDFTexture->RenderTargetFormat = RTF_RG16f;
+			SmokeSDFTexture->SRGB = false;
+			SmokeSDFTexture->bCanCreateUAV = true;
+			SmokeSDFTexture->AddressX = TA_Clamp;
+			SmokeSDFTexture->AddressY = TA_Clamp;
+			SmokeSDFTexture->InitAutoFormat(512.0f, 512.0f);
+		}
+		
+		FVolumetircFXSDFCSParams Params;
+		Params.VoxelCount = AllNodes.Num();
+		Params.VoxelPointLocation = AllNodes;
+		Params.BoundsOrigin = GetActorLocation();
+		Params.BoundsSize = 500.0f;
+		Params.SDFTexture = SmokeSDFTexture;
+		
+		FMySimpleComputeShaderInterface::Dispatch(Params, nullptr);
+	}
 }
