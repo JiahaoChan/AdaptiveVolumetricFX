@@ -1,0 +1,80 @@
+// Copyright Epic Games, Inc. All Rights Reserved.
+
+#include "/Engine/Private/Common.ush" 
+#include "/Engine/Public/Platform.ush"
+
+Buffer<int> Input;
+RWBuffer<int> Output;
+
+// Input
+uint VoxelCount;
+Buffer<float3> VoxelPointLocation;
+float3 BoundsOrigin;
+float BoundsSize;
+
+// Output
+RWTexture2D<float4> SDFTexture;
+
+//~ Begin SDF Blend SMin Function
+float Exponential(float A, float B, float K)
+{
+    float r = exp(-A / K) + exp2(-B / K);
+    return -K * log2(r);
+}
+
+float Root(float A, float B, float K)
+{
+    K *= K;
+    float x = B - A;
+    return 0.5 * (A + B - sqrt(x * x + K * K));
+}
+
+float Sigmoid(float A, float B, float K)
+{
+    K *= log2(2.0);
+    float x = B - A;
+    return A + x / (1.0 - exp2(x / K));
+}
+
+float QuadraticPolynomial(float A, float B, float K)
+{
+    K *= 4.0;
+    float h = max(K - abs(A - B), 0.0) / K;
+    return min(A, B) - h * h * K * 0.25;
+}
+
+float CubicPolynomial(float A, float B, float K)
+{
+    K *= 6.0;
+    float h = max(K - abs(A - B), 0.0) / K;
+    return min(A, B) - h * h * h * K * (1.0 / 6.0);
+}
+
+float QuarticPolynomial(float A, float B, float K)
+{
+    K *= 16.0 / 3.0;
+    float h = max(K - abs(A - B), 0.0) / K;
+    return min(A, B) - h * h * h * (4.0 - h) * K * (1.0 / 16.0);
+}
+
+float Circular(float A, float B, float K)
+{
+    K *= 1.0 / (1.0 - sqrt(0.5));
+    float h = max(K - abs(A - B), 0.0) / K;
+    return min(A, B) - K * 0.5 * (1.0 + h - sqrt(1.0 - h * (h - 2.0)));
+}
+//~ End SDF Blend SMin Function
+
+[numthreads(THREADS_X, THREADS_Y, THREADS_Z)]
+void Main(
+    uint3 DispatchThreadId : SV_DispatchThreadID,
+    uint GroupIndex : SV_GroupIndex )
+{
+    // Outputs one number
+    Output[0] = Input[0] * Input[1];
+    SDFTexture[DispatchThreadId.xy] = float4(0.5, 0.2, 0.2, 1.0);
+    for (int i = 0; i < 32; i++)
+    {
+        SDFTexture[float2(i, 0.0)] = float4(0.5, 0.2, 0.2, 1.0);
+    }
+}

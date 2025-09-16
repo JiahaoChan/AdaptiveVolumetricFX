@@ -24,6 +24,11 @@
 			"Name": "AdaptiveVolumetricFXEditor",
 			"Type": "Editor",
 			"LoadingPhase": "PostEngineInit"
+		},
+		{
+			"Name": "VolumetricFXRendering",
+			"Type": "Runtime",
+			"LoadingPhase": "PostConfigInit"
 		}
 	]
 }
