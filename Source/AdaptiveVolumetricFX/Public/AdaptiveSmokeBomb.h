@@ -35,7 +35,7 @@ protected:
 	UPROPERTY(BlueprintReadWrite, Category = "Smoke Bomb")
 	TArray<FExplodeLayer> ExplodeLayers;
 	
-	UPROPERTY(Transient, DuplicateTransient)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Smoke Bomb")
 	TObjectPtr<UTextureRenderTarget2D> SmokeSDFTexture;
 	
 public:

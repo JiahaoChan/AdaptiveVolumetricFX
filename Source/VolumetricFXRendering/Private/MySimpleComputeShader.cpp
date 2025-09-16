@@ -158,9 +158,9 @@ void FMySimpleComputeShaderInterface::DispatchRenderThread(FRHICommandListImmedi
 			uint32 NumInputs = Params.VoxelPointLocation.Num();
 			uint32 InputSize = sizeof(FVector3f);
 			FRDGBufferRef InputBuffer = CreateUploadBuffer(GraphBuilder, TEXT("InputBuffer"), InputSize, NumInputs, RawData, InputSize * NumInputs);
-			PassParameters->VoxelPointLocation = GraphBuilder.CreateSRV(FRDGBufferSRVDesc(InputBuffer));
+			PassParameters->VoxelPointLocation = GraphBuilder.CreateSRV(FRDGBufferSRVDesc(InputBuffer, EPixelFormat::PF_R32G32B32F));
 			
-			PassParameters->VoxelCount = Params.VoxelPointLocation.Num();
+			PassParameters->VoxelCount = NumInputs;
 			PassParameters->BoundsOrigin = FVector3f(Params.BoundsOrigin);
 			PassParameters->BoundsSize = Params.BoundsSize;
 			

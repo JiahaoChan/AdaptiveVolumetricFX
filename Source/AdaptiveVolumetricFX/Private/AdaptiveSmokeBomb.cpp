@@ -115,7 +115,7 @@ void AAdaptiveSmokeBomb::Explode()
 		TArray<FVector3f> AllNodes;
 		for (const FExplodeLayer& Layer : ExplodeLayers)
 		{
-			for (const FVector& Node : Layer)
+			for (const FVector& Node : Layer.Nodes)
 			{
 				AllNodes.Add(FVector3f(Node));
 			}
@@ -124,7 +124,7 @@ void AAdaptiveSmokeBomb::Explode()
 		{
 			SmokeSDFTexture = NewObject<UTextureRenderTarget2D>(this);
 			check(SmokeSDFTexture);
-			SmokeSDFTexture->RenderTargetFormat = RTF_RG16f;
+			SmokeSDFTexture->RenderTargetFormat = RTF_R16f;
 			SmokeSDFTexture->SRGB = false;
 			SmokeSDFTexture->bCanCreateUAV = true;
 			SmokeSDFTexture->AddressX = TA_Clamp;
