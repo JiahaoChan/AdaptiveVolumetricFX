@@ -3,18 +3,52 @@
 #include "/Engine/Private/Common.ush" 
 #include "/Engine/Public/Platform.ush"
 
+#ifndef SMIN_FUNCTION_EXPONENTIAL
+#define SMIN_FUNCTION_EXPONENTIAL 0
+#endif
+
+#ifndef SMIN_FUNCTION_ROOT
+#define SMIN_FUNCTION_ROOT 1
+#endif
+
+#ifndef SMIN_FUNCTION_SIGMOID
+#define SMIN_FUNCTION_SIGMOID 2
+#endif
+
+#ifndef SMIN_FUNCTION_QUADRATICPOLYNOMIAL
+#define SMIN_FUNCTION_QUADRATICPOLYNOMIAL 3
+#endif
+
+#ifndef SMIN_FUNCTION_CUBICPOLYNOMIAL
+#define SMIN_FUNCTION_CUBICPOLYNOMIAL 4
+#endif
+
+#ifndef SMIN_FUNCTION_QUARTICPOLYNOMIAL
+#define SMIN_FUNCTION_QUARTICPOLYNOMIAL 5
+#endif
+
+#ifndef SMIN_FUNCTION_CIRCULAR
+#define SMIN_FUNCTION_CIRCULAR 6
+#endif
+
+#ifndef SDF_BLEND_FUNCTION
+#define SDF_BLEND_FUNCTION SMIN_FUNCTION_ROOT
+#endif
+
 RWBuffer<int> Output;
 
 // Input
 uint VoxelCount;
-Buffer<float3> VoxelPointLocation;
+Buffer<float3> VoxelPointLocations;
 float3 BoundsOrigin;
 float BoundsSize;
-uint LayerResolution;
-uint LayerCount;
+uint LayerBaseSize;
+float InnerRadius;
+float OuterRadius;
+float FactorK;
 
 // Output
-RWTexture2D<float4> SDFTexture;
+RWTexture2D<float> SDFTexture;
 
 //~ Begin SDF Blend SMin Function
 float Exponential(float A, float B, float K)
@@ -66,17 +100,85 @@ float Circular(float A, float B, float K)
 }
 //~ End SDF Blend SMin Function
 
-[numthreads(NUMTHREADSX, NUMTHREADSY, 1)]
+float GetLocationSDFValue(float CurrentSDF, float3 Location, float3 VoxelPointLocation)
+{
+    float Value = saturate((distance(Location, VoxelPointLocation) - InnerRadius) / OuterRadius);
+    
+#if SDF_BLEND_FUNCTION == SMIN_FUNCTION_EXPONENTIAL
+    return Exponential(Value, CurrentSDF, FactorK);
+#elif SDF_BLEND_FUNCTION == SMIN_FUNCTION_ROOT
+    return Root(Value, CurrentSDF, FactorK);
+#elif SDF_BLEND_FUNCTION == SMIN_FUNCTION_SIGMOID
+    return Sigmoid(Value, CurrentSDF, FactorK);
+#elif SDF_BLEND_FUNCTION == SMIN_FUNCTION_QUADRATICPOLYNOMIAL
+    return QuadraticPolynomial(Value, CurrentSDF, FactorK);
+#elif SDF_BLEND_FUNCTION == SMIN_FUNCTION_CUBICPOLYNOMIAL
+    return CubicPolynomial(Value, CurrentSDF, FactorK);
+#elif SDF_BLEND_FUNCTION == SMIN_FUNCTION_QUARTICPOLYNOMIAL
+    return QuarticPolynomial(Value, CurrentSDF, FactorK);
+#elif SDF_BLEND_FUNCTION == SMIN_FUNCTION_CIRCULAR
+    return Circular(Value, CurrentSDF, FactorK);
+#else
+    return 1.0f;
+#endif
+}
+
+float3 ConvertVolumeTextureUVToBoundsLocation(float3 UV)
+{
+    return (UV - float3(0.5, 0.5, 0.5)) * BoundsSize;
+}
+
+float2 ConvertVolumeTextureUVToFlattenUV(float3 UV)
+{
+    uint LayerResolution = LayerBaseSize * LayerBaseSize;
+    float LayerIntervalCount = LayerResolution - 1;
+    float TilesPerRow = 8.0;
+    float TilesPerCol = ceil(LayerResolution / TilesPerRow);
+    
+    float SliceIndex = floor(UV.z * LayerIntervalCount);
+    float TileX = fmod(SliceIndex, TilesPerRow);
+    float TileY = floor(SliceIndex / TilesPerRow);
+    
+    float InvTilesPerRow = 1.0 / TilesPerRow;
+    float InvTilesPerCol = 1.0 / TilesPerCol;
+    
+    float2 UVInTile = float2(UV.x * InvTilesPerRow, UV.y * InvTilesPerCol);
+    float2 TileOffset = float2(TileX * InvTilesPerRow, TileY * InvTilesPerCol);
+    
+    return UVInTile + TileOffset;
+}
+
+[numthreads(NUMTHREADSX, NUMTHREADSY, NUMTHREADSZ)]
 void Main(
     uint3 DispatchThreadId : SV_DispatchThreadID,
-    uint GroupIndex : SV_GroupIndex )
+    uint GroupIndex : SV_GroupIndex)
 {
-    // Outputs one number
-    //Output[0] = Input[0] * Input[1];
     Output[0] = 1.0f;
-    SDFTexture[DispatchThreadId.xy] = float4(0.5, 0.2, 0.2, 1.0);
-    for (int i = 0; i < 32; i++)
+    /*
+    for (int i = 0; i < 512; i++)
     {
-        SDFTexture[float2(i, 0.0)] = float4(0.5, 0.2, 0.2, 1.0);
+        SDFTexture[float2(i, 0.0)] = 0.5;
+    }
+    */
+    uint LayerResolution = LayerBaseSize * LayerBaseSize;
+    uint TextureResolution = LayerResolution * LayerBaseSize;
+    float Offset = 1.0 / LayerResolution;
+    float HalfOffset = Offset * 0.5;
+    uint TilesPerRow = 8;
+    // Write Color to per texel.
+    for (float y = 0; y < LayerResolution; y++)
+    {
+        for (float x = 0; x < LayerResolution; x++)
+        {
+            float3 VolumeTextureUV = float3(x * Offset + HalfOffset, y * Offset + HalfOffset, (DispatchThreadId.x + DispatchThreadId.y * TilesPerRow) / (LayerResolution - 1.0));
+            float SDFValue = 1.0;
+            float3 LocationInBounds = ConvertVolumeTextureUVToBoundsLocation(VolumeTextureUV);
+            for (uint i = 0; i < VoxelCount; i++)
+            {
+                // Voxel Point Location is in World space.
+                SDFValue = GetLocationSDFValue(SDFValue, LocationInBounds, VoxelPointLocations[i] - BoundsOrigin);
+            }
+            SDFTexture[ConvertVolumeTextureUVToFlattenUV(VolumeTextureUV) * TextureResolution] = SDFValue;
+        }
     }
 }

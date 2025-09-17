@@ -23,6 +23,11 @@ AAdaptiveSmokeBomb::AAdaptiveSmokeBomb()
 	SpreadWeight = 10.0f;
 	
 	SmokeSDFTexture = nullptr;
+	
+	BoundsSize = 500.0f;
+	InnerRadius = 100.0f;
+	OuterRadius = 200.0f;
+	FactorK = 0.5f;
 }
 
 void AAdaptiveSmokeBomb::BeginPlay()
@@ -123,22 +128,22 @@ void AAdaptiveSmokeBomb::Explode()
 		}
 		if (!SmokeSDFTexture)
 		{
-			SmokeSDFTexture = NewObject<UTextureRenderTarget2D>(this);
+			SmokeSDFTexture = FVolumetricFXSDFComputeShaderInterface::BuildSDFRenderTarget(this, 8);
 			check(SmokeSDFTexture);
-			SmokeSDFTexture->RenderTargetFormat = RTF_R16f;
-			SmokeSDFTexture->SRGB = false;
-			SmokeSDFTexture->bCanCreateUAV = true;
-			SmokeSDFTexture->AddressX = TA_Clamp;
-			SmokeSDFTexture->AddressY = TA_Clamp;
-			SmokeSDFTexture->InitAutoFormat(512.0f, 512.0f);
 		}
 		
 		FVolumetircFXSDFCSParams Params;
-		Params.VoxelPointLocation = AllNodes;
+		Params.VoxelPointLocations = AllNodes;
 		Params.BoundsOrigin = GetActorLocation();
-		Params.BoundsSize = 500.0f;
+		Params.BoundsSize = BoundsSize;
+		Params.LayerBaseSize = 8;
+		Params.InnerRadius = InnerRadius;
+		Params.OuterRadius = OuterRadius;
+		Params.FactorK = FactorK;
 		Params.SDFTexture = SmokeSDFTexture;
 		
 		FVolumetricFXSDFComputeShaderInterface::Dispatch(Params, nullptr);
 	}
+	
+	ExplodeWithAnim(0);
 }

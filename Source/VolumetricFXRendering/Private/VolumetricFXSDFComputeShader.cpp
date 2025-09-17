@@ -44,8 +44,8 @@
 #include "MaterialShader.h"
 #include "RHIGPUReadback.h"
 
-DECLARE_STATS_GROUP(TEXT("FVolumetricFXSDFComputeShader"), STATGROUP_MySimpleComputeShader, STATCAT_Advanced);
-DECLARE_CYCLE_STAT(TEXT("FVolumetricFXSDFComputeShader Execute"), STAT_MySimpleComputeShader_Execute, STATGROUP_MySimpleComputeShader);
+DECLARE_STATS_GROUP(TEXT("FVolumetricFXSDFComputeShader"), STATGROUP_VolumetricFXSDFComputeShader, STATCAT_Advanced);
+DECLARE_CYCLE_STAT(TEXT("FVolumetricFXSDFComputeShader Execute"), STAT_VolumetricFXSDFComputeShader_Execute, STATGROUP_VolumetricFXSDFComputeShader);
 
 class VOLUMETRICFXRENDERING_API FVolumetricFXSDFComputeShader : public FGlobalShader
 {
@@ -53,29 +53,43 @@ public:
 	DECLARE_GLOBAL_SHADER(FVolumetricFXSDFComputeShader);
 	SHADER_USE_PARAMETER_STRUCT(FVolumetricFXSDFComputeShader, FGlobalShader);
 	
-	class FMySimpleComputeShader_Perm_TEST : SHADER_PERMUTATION_INT("TEST", 1);
+	class FSDFBlendFunctionMethod : SHADER_PERMUTATION_INT("SDF_BLEND_FUNCTION", 7);
 	using FPermutationDomain = TShaderPermutationDomain<
-		FMySimpleComputeShader_Perm_TEST
+		FSDFBlendFunctionMethod
 	>;
 	
 	BEGIN_SHADER_PARAMETER_STRUCT(FParameters,)
 		SHADER_PARAMETER_RDG_BUFFER_UAV(RWBuffer<int>, Output)
 		
 		SHADER_PARAMETER(uint32, VoxelCount)
-		SHADER_PARAMETER_RDG_BUFFER_SRV(Buffer<float3>, VoxelPointLocation)
+		SHADER_PARAMETER_RDG_BUFFER_SRV(Buffer<FVector3f>, VoxelPointLocations)
 		SHADER_PARAMETER(FVector3f, BoundsOrigin)
 		SHADER_PARAMETER(float, BoundsSize)
-		SHADER_PARAMETER(uint32, LayerResolution)
-		SHADER_PARAMETER(uint32, LayerCount)
-		
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D<float4>, SDFTexture)
+		SHADER_PARAMETER(uint32, LayerBaseSize)
+		SHADER_PARAMETER(float, InnerRadius)
+		SHADER_PARAMETER(float, OuterRadius)
+		SHADER_PARAMETER(float, FactorK)
+		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D<float>, SDFTexture)
 	END_SHADER_PARAMETER_STRUCT()
 	
 public:
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
 		const FPermutationDomain PermutationVector(Parameters.PermutationId);
-		return true;
+		
+		bool bShouldCompile = true;
+		switch (PermutationVector.Get<FSDFBlendFunctionMethod>())
+		{
+			// Only use Root Function for the moment.
+			case 1:
+				bShouldCompile = true;
+				break;
+			default:
+				bShouldCompile = false;
+				break;
+		}
+		
+		return bShouldCompile;
 	}
     
 	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
@@ -88,10 +102,15 @@ public:
 		OutEnvironment.SetDefine(TEXT("NUMTHREADSY"), 8);
 		OutEnvironment.SetDefine(TEXT("NUMTHREADSZ"), 1);
 		
-		if (PermutationVector.Get< FMySimpleComputeShader_Perm_TEST >() != 0)
-		{
-			OutEnvironment.SetDefine(TEXT("TEST"), TEXT("1"));
-		}
+		OutEnvironment.SetDefine(TEXT("SDF_BLEND_FUNCTION"), PermutationVector.Get<FSDFBlendFunctionMethod>());
+		
+		OutEnvironment.SetDefine(TEXT("SMIN_FUNCTION_EXPONENTIAL"), 0);
+		OutEnvironment.SetDefine(TEXT("SMIN_FUNCTION_ROOT"), 1);
+		OutEnvironment.SetDefine(TEXT("SMIN_FUNCTION_SIGMOID"), 2);
+		OutEnvironment.SetDefine(TEXT("SMIN_FUNCTION_QUADRATICPOLYNOMIAL"), 3);
+		OutEnvironment.SetDefine(TEXT("SMIN_FUNCTION_CUBICPOLYNOMIAL"), 4);
+		OutEnvironment.SetDefine(TEXT("SMIN_FUNCTION_QUARTICPOLYNOMIAL"), 5);
+		OutEnvironment.SetDefine(TEXT("SMIN_FUNCTION_CIRCULAR"), 6);
 		
 		// This shader must support typed UAV load and we are testing if it is supported at runtime using RHIIsTypedUAVLoadSupported
 		//OutEnvironment.CompilerFlags.Add(CFLAG_AllowTypedUAVLoads);
@@ -104,19 +123,19 @@ void FVolumetricFXSDFComputeShaderInterface::DispatchRenderThread(FRHICommandLis
 {
 	FRDGBuilder GraphBuilder(RHICmdList);
 	{
-		SCOPE_CYCLE_COUNTER(STAT_MySimpleComputeShader_Execute);
-		DECLARE_GPU_STAT(MySimpleComputeShader);
-		RDG_EVENT_SCOPE(GraphBuilder, "MySimpleComputeShader");
-		RDG_GPU_STAT_SCOPE(GraphBuilder, MySimpleComputeShader);
+		SCOPE_CYCLE_COUNTER(STAT_VolumetricFXSDFComputeShader_Execute);
+		DECLARE_GPU_STAT(VolumetricFXSDFComputeShader);
+		RDG_EVENT_SCOPE(GraphBuilder, "VolumetricFXSDFComputeShader");
+		RDG_GPU_STAT_SCOPE(GraphBuilder, VolumetricFXSDFComputeShader);
 		
 		typename FVolumetricFXSDFComputeShader::FPermutationDomain PermutationVector;
 		
-		// Add any static permutation options here
-		//PermutationVector.Set<FMySimpleComputeShader::FMySimpleComputeShader_Perm_TEST>(1);
+		// Default to be 1 - SMin Root for the moment.
+		PermutationVector.Set<FVolumetricFXSDFComputeShader::FSDFBlendFunctionMethod>(1);
 		
 		TShaderMapRef<FVolumetricFXSDFComputeShader> ComputeShader(GetGlobalShaderMap(GMaxRHIFeatureLevel), PermutationVector);
 		
-		if (ComputeShader.IsValid())
+		if (ComputeShader.IsValid() && Params.VoxelPointLocations.Num() > 0)
 		{
 			FVolumetricFXSDFComputeShader::FParameters* PassParameters = GraphBuilder.AllocParameters<FVolumetricFXSDFComputeShader::FParameters>();
 			/*
@@ -131,20 +150,29 @@ void FVolumetricFXSDFComputeShaderInterface::DispatchRenderThread(FRHICommandLis
 			FRDGBufferRef OutputBuffer = GraphBuilder.CreateBuffer(FRDGBufferDesc::CreateBufferDesc(sizeof(int32), 1), TEXT("OutputBuffer"));
 			PassParameters->Output = GraphBuilder.CreateUAV(FRDGBufferUAVDesc(OutputBuffer, PF_R32_SINT));
 			
-			const void* RawData = (void*)Params.VoxelPointLocation.GetData();
-			uint32 NumInputs = Params.VoxelPointLocation.Num();
+			TArray<FVector3f> Temp;
+			for (const FVector& Value : Params.VoxelPointLocations)
+			{
+				Temp.Add(FVector3f(Value));
+			}
+			const void* RawData = (void*)Temp.GetData();
+			uint32 NumInputs = Params.VoxelPointLocations.Num();
 			uint32 InputSize = sizeof(FVector3f);
-			FRDGBufferRef InputBuffer = CreateUploadBuffer(GraphBuilder, TEXT("InputBuffer"), InputSize, NumInputs, RawData, InputSize * NumInputs);
-			PassParameters->VoxelPointLocation = GraphBuilder.CreateSRV(FRDGBufferSRVDesc(InputBuffer, EPixelFormat::PF_R32G32B32F));
+			FRDGBufferRef VoxelPointLocationsBuffer = CreateUploadBuffer(GraphBuilder, TEXT("VoxelPointLocationsBuffer"), InputSize, NumInputs, RawData, InputSize * NumInputs);
+			PassParameters->VoxelPointLocations = GraphBuilder.CreateSRV(FRDGBufferSRVDesc(VoxelPointLocationsBuffer, PF_R32G32B32F));
 			
 			PassParameters->VoxelCount = NumInputs;
 			PassParameters->BoundsOrigin = FVector3f(Params.BoundsOrigin);
 			PassParameters->BoundsSize = Params.BoundsSize;
+			PassParameters->LayerBaseSize = Params.LayerBaseSize;
+			PassParameters->InnerRadius = Params.InnerRadius;
+			PassParameters->OuterRadius = Params.OuterRadius;
+			PassParameters->FactorK = Params.FactorK;
 			
 			FTextureResource* TextureResource = Params.SDFTexture->GetResource();
 			check(TextureResource);
 			FRDGTextureRef SDFTextureRDG = GraphBuilder.RegisterExternalTexture(CreateRenderTarget(TextureResource->GetTexture2DRHI(), TEXT("VolumetricFXSDFTexture")));
-			PassParameters->SDFTexture = GraphBuilder.CreateUAV(SDFTextureRDG);
+			PassParameters->SDFTexture = GraphBuilder.CreateUAV(SDFTextureRDG, ERDGUnorderedAccessViewFlags::None, PF_R16F);
 			
 			FIntVector GroupCount = FComputeShaderUtils::GetGroupCount(FIntVector(8, 8, 1), FComputeShaderUtils::kGolden2DGroupSize);
 			GraphBuilder.AddPass(
@@ -198,4 +226,17 @@ void FVolumetricFXSDFComputeShaderInterface::DispatchRenderThread(FRHICommandLis
 		}
 	}
 	GraphBuilder.Execute();
+}
+
+UTextureRenderTarget2D* FVolumetricFXSDFComputeShaderInterface::BuildSDFRenderTarget(UObject* Outer, const uint32& LayerBaseSize)
+{
+	UTextureRenderTarget2D* RT = NewObject<UTextureRenderTarget2D>(IsValid(Outer) ? Outer : GetTransientPackage());
+	RT->RenderTargetFormat = RTF_R16f;
+	RT->SRGB = false;
+	RT->bCanCreateUAV = true;
+	RT->AddressX = TA_Clamp;
+	RT->AddressY = TA_Clamp;
+	float Resolution = LayerBaseSize * LayerBaseSize * LayerBaseSize;
+	RT->InitAutoFormat(Resolution, Resolution);
+	return RT;
 }

@@ -20,11 +20,13 @@ struct VOLUMETRICFXRENDERING_API FVolumetircFXSDFCSParams
 	int32 Output;
 	
 	// Input
-	TArray<FVector> VoxelPointLocation;
+	TArray<FVector> VoxelPointLocations;
 	FVector BoundsOrigin;
 	float BoundsSize;
-	uint32 LayerResolution;
-	uint32 LayerCount;
+	uint32 LayerBaseSize;
+	float InnerRadius;
+	float OuterRadius;
+	float FactorK;
 	
 	// Output
 	TObjectPtr<UTextureRenderTarget2D> SDFTexture;
@@ -34,8 +36,10 @@ struct VOLUMETRICFXRENDERING_API FVolumetircFXSDFCSParams
 		Output = 0;
 		BoundsOrigin = FVector::ZeroVector;
 		BoundsSize = 0.0f;
-		LayerResolution = 0;
-		LayerCount = 0;
+		LayerBaseSize = 8;
+		InnerRadius = 100.0f;
+		OuterRadius = 200.0f;
+		FactorK = 0.5f;
 		SDFTexture = nullptr;
 	}
 };
@@ -68,6 +72,8 @@ public:
 			DispatchGameThread(Params, AsyncCallback);
 		}
 	}
+	
+	static UTextureRenderTarget2D* BuildSDFRenderTarget(UObject* Outer, const uint32& LayerBaseSize);
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMySimpleComputeShaderLibrary_AsyncExecutionCompleted, const int, Value);

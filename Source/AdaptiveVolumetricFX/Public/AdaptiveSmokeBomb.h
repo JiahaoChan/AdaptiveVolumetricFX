@@ -38,6 +38,18 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Smoke Bomb")
 	TObjectPtr<UTextureRenderTarget2D> SmokeSDFTexture;
 	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Smoke Bomb")
+	float BoundsSize;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Smoke Bomb")
+	float InnerRadius;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Smoke Bomb")
+	float OuterRadius;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Smoke Bomb")
+	float FactorK;
+	
 public:
 	AAdaptiveSmokeBomb();
 	
