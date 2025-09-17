@@ -10,6 +10,8 @@ uint VoxelCount;
 Buffer<float3> VoxelPointLocation;
 float3 BoundsOrigin;
 float BoundsSize;
+uint LayerResolution;
+uint LayerCount;
 
 // Output
 RWTexture2D<float4> SDFTexture;

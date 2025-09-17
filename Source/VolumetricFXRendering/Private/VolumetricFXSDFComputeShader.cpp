@@ -4,7 +4,7 @@
  * Copyright Technical Artist - Jiahao.Chan, Individual. All Rights Reserved.
  */
 
-#include "MySimpleComputeShader.h"
+#include "VolumetricFXSDFComputeShader.h"
 
 #include "CoreMinimal.h"
 #include "VolumetricFXRendering.h"
@@ -32,8 +32,6 @@
 #include "RenderGraphResources.h"
 #include "Runtime/Engine/Classes/Engine/TextureRenderTarget2D.h"
 
-//#include "VolumetricFXRendering/Public/MySimpleComputeShader.h"
-
 #include "PixelShaderUtils.h"
 #include "RenderGraphUtils.h"
 #include "MeshPassProcessor.inl"
@@ -46,52 +44,31 @@
 #include "MaterialShader.h"
 #include "RHIGPUReadback.h"
 
-DECLARE_STATS_GROUP(TEXT("MySimpleComputeShader"), STATGROUP_MySimpleComputeShader, STATCAT_Advanced);
-DECLARE_CYCLE_STAT(TEXT("MySimpleComputeShader Execute"), STAT_MySimpleComputeShader_Execute, STATGROUP_MySimpleComputeShader);
+DECLARE_STATS_GROUP(TEXT("FVolumetricFXSDFComputeShader"), STATGROUP_MySimpleComputeShader, STATCAT_Advanced);
+DECLARE_CYCLE_STAT(TEXT("FVolumetricFXSDFComputeShader Execute"), STAT_MySimpleComputeShader_Execute, STATGROUP_MySimpleComputeShader);
 
-class VOLUMETRICFXRENDERING_API FMySimpleComputeShader : public FGlobalShader
+class VOLUMETRICFXRENDERING_API FVolumetricFXSDFComputeShader : public FGlobalShader
 {
 public:
-	DECLARE_GLOBAL_SHADER(FMySimpleComputeShader);
-	SHADER_USE_PARAMETER_STRUCT(FMySimpleComputeShader, FGlobalShader);
+	DECLARE_GLOBAL_SHADER(FVolumetricFXSDFComputeShader);
+	SHADER_USE_PARAMETER_STRUCT(FVolumetricFXSDFComputeShader, FGlobalShader);
 	
 	class FMySimpleComputeShader_Perm_TEST : SHADER_PERMUTATION_INT("TEST", 1);
-	using FPermutationDomain = TShaderPermutationDomain
-	<
+	using FPermutationDomain = TShaderPermutationDomain<
 		FMySimpleComputeShader_Perm_TEST
 	>;
 	
-	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
-		/*
-		* Here's where you define one or more of the input parameters for your shader.
-		* Some examples:
-		*/
-		// SHADER_PARAMETER(uint32, MyUint32) // On the shader side: uint32 MyUint32;
-		// SHADER_PARAMETER(FVector3f, MyVector) // On the shader side: float3 MyVector;
-		
-		// SHADER_PARAMETER_TEXTURE(Texture2D, MyTexture) // On the shader side: Texture2D<float4> MyTexture; (float4 should be whatever you expect each pixel in the texture to be, in this case float4(R,G,B,A) for 4 channels)
-		// SHADER_PARAMETER_SAMPLER(SamplerState, MyTextureSampler) // On the shader side: SamplerState MySampler; // CPP side: TStaticSamplerState<ESamplerFilter::SF_Bilinear>::GetRHI();
-		
-		// SHADER_PARAMETER_ARRAY(float, MyFloatArray, [3]) // On the shader side: float MyFloatArray[3];
-		
-		// SHADER_PARAMETER_UAV(RWTexture2D<FVector4f>, MyTextureUAV) // On the shader side: RWTexture2D<float4> MyTextureUAV;
-		// SHADER_PARAMETER_UAV(RWStructuredBuffer<FMyCustomStruct>, MyCustomStructs) // On the shader side: RWStructuredBuffer<FMyCustomStruct> MyCustomStructs;
-		// SHADER_PARAMETER_UAV(RWBuffer<FMyCustomStruct>, MyCustomStructs) // On the shader side: RWBuffer<FMyCustomStruct> MyCustomStructs;
-		
-		// SHADER_PARAMETER_SRV(StructuredBuffer<FMyCustomStruct>, MyCustomStructs) // On the shader side: StructuredBuffer<FMyCustomStruct> MyCustomStructs;
-		// SHADER_PARAMETER_SRV(Buffer<FMyCustomStruct>, MyCustomStructs) // On the shader side: Buffer<FMyCustomStruct> MyCustomStructs;
-		// SHADER_PARAMETER_SRV(Texture2D<FVector4f>, MyReadOnlyTexture) // On the shader side: Texture2D<float4> MyReadOnlyTexture;
-		
-		// SHADER_PARAMETER_STRUCT_REF(FMyCustomStruct, MyCustomStruct)
-		
+	BEGIN_SHADER_PARAMETER_STRUCT(FParameters,)
 		SHADER_PARAMETER_RDG_BUFFER_UAV(RWBuffer<int>, Output)
 		
 		SHADER_PARAMETER(uint32, VoxelCount)
-		SHADER_PARAMETER_RDG_BUFFER_SRV(Buffer<FVector3f>, VoxelPointLocation)
+		SHADER_PARAMETER_RDG_BUFFER_SRV(Buffer<float3>, VoxelPointLocation)
 		SHADER_PARAMETER(FVector3f, BoundsOrigin)
 		SHADER_PARAMETER(float, BoundsSize)
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D<FVector4f>, SDFTexture)
+		SHADER_PARAMETER(uint32, LayerResolution)
+		SHADER_PARAMETER(uint32, LayerCount)
 		
+		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D<float4>, SDFTexture)
 	END_SHADER_PARAMETER_STRUCT()
 	
 public:
@@ -121,9 +98,9 @@ public:
 	}
 };
 
-IMPLEMENT_GLOBAL_SHADER(FMySimpleComputeShader, "/Plugin/VolumetricFXRenderingShaders/MySimpleComputeShader.usf", "Main", SF_Compute);
+IMPLEMENT_GLOBAL_SHADER(FVolumetricFXSDFComputeShader, "/Plugin/VolumetricFXRenderingShaders/VolumetricFXSDFComputeShader.usf", "Main", SF_Compute);
 
-void FMySimpleComputeShaderInterface::DispatchRenderThread(FRHICommandListImmediate& RHICmdList, FVolumetircFXSDFCSParams Params, TFunction<void(int OutputVal)> AsyncCallback)
+void FVolumetricFXSDFComputeShaderInterface::DispatchRenderThread(FRHICommandListImmediate& RHICmdList, FVolumetircFXSDFCSParams Params, TFunction<void(int OutputVal)> AsyncCallback)
 {
 	FRDGBuilder GraphBuilder(RHICmdList);
 	{
@@ -132,16 +109,16 @@ void FMySimpleComputeShaderInterface::DispatchRenderThread(FRHICommandListImmedi
 		RDG_EVENT_SCOPE(GraphBuilder, "MySimpleComputeShader");
 		RDG_GPU_STAT_SCOPE(GraphBuilder, MySimpleComputeShader);
 		
-		typename FMySimpleComputeShader::FPermutationDomain PermutationVector;
+		typename FVolumetricFXSDFComputeShader::FPermutationDomain PermutationVector;
 		
 		// Add any static permutation options here
 		//PermutationVector.Set<FMySimpleComputeShader::FMySimpleComputeShader_Perm_TEST>(1);
 		
-		TShaderMapRef<FMySimpleComputeShader> ComputeShader(GetGlobalShaderMap(GMaxRHIFeatureLevel), PermutationVector);
+		TShaderMapRef<FVolumetricFXSDFComputeShader> ComputeShader(GetGlobalShaderMap(GMaxRHIFeatureLevel), PermutationVector);
 		
 		if (ComputeShader.IsValid())
 		{
-			FMySimpleComputeShader::FParameters* PassParameters = GraphBuilder.AllocParameters<FMySimpleComputeShader::FParameters>();
+			FVolumetricFXSDFComputeShader::FParameters* PassParameters = GraphBuilder.AllocParameters<FVolumetricFXSDFComputeShader::FParameters>();
 			/*
 			const void* RawData = (void*)Params.Input.GetData();
 			int NumInputs = Params.Input.Num();

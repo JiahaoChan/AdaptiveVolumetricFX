@@ -10,7 +10,7 @@
 #include "GenericPlatform/GenericPlatformMisc.h"
 #include "Kismet/BlueprintAsyncActionBase.h"
 
-#include "MySimpleComputeShader.generated.h"
+#include "VolumetricFXSDFComputeShader.generated.h"
 
 USTRUCT()
 struct VOLUMETRICFXRENDERING_API FVolumetircFXSDFCSParams
@@ -20,10 +20,11 @@ struct VOLUMETRICFXRENDERING_API FVolumetircFXSDFCSParams
 	int32 Output;
 	
 	// Input
-	int32 VoxelCount;
-	TArray<FVector3f> VoxelPointLocation;
+	TArray<FVector> VoxelPointLocation;
 	FVector BoundsOrigin;
 	float BoundsSize;
+	uint32 LayerResolution;
+	uint32 LayerCount;
 	
 	// Output
 	TObjectPtr<UTextureRenderTarget2D> SDFTexture;
@@ -31,17 +32,15 @@ struct VOLUMETRICFXRENDERING_API FVolumetircFXSDFCSParams
 	FVolumetircFXSDFCSParams()
 	{
 		Output = 0;
-		
-		VoxelCount = 0;
 		BoundsOrigin = FVector::ZeroVector;
 		BoundsSize = 0.0f;
-		
+		LayerResolution = 0;
+		LayerCount = 0;
 		SDFTexture = nullptr;
 	}
 };
 
-// This is a public interface that we define so outside code can invoke our compute shader.
-class VOLUMETRICFXRENDERING_API FMySimpleComputeShaderInterface
+class VOLUMETRICFXRENDERING_API FVolumetricFXSDFComputeShaderInterface
 {
 public:
 	// Executes this shader on the render thread
@@ -74,7 +73,7 @@ public:
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMySimpleComputeShaderLibrary_AsyncExecutionCompleted, const int, Value);
 
 UCLASS()
-class VOLUMETRICFXRENDERING_API UMySimpleComputeShaderLibrary_AsyncExecution : public UBlueprintAsyncActionBase
+class VOLUMETRICFXRENDERING_API UFVolumetricFXSDFComputeShaderLibrary_AsyncExecution : public UBlueprintAsyncActionBase
 {
 	GENERATED_BODY()
 	
@@ -85,11 +84,10 @@ public:
 		//Params.VoxelPointLocation = VoxelPointLocation;
 		Params.BoundsOrigin = BoundsOrigin;
 		Params.BoundsSize = BoundsSize;
-		Params.VoxelCount = VoxelCount;
 		
 		Params.SDFTexture = SDFRenderTarget;
 		
-		FMySimpleComputeShaderInterface::Dispatch(Params, [this](int OutputVal)
+		FVolumetricFXSDFComputeShaderInterface::Dispatch(Params, [this](int OutputVal)
 		{
 			if (Completed.IsBound())
 			{
@@ -99,7 +97,7 @@ public:
 	}
 	
 	UFUNCTION(BlueprintCallable, meta = (BlueprintInternalUseOnly = "true", Category = "ComputeShader", WorldContext = "WorldContextObject"))
-	static UMySimpleComputeShaderLibrary_AsyncExecution* ExecuteBaseComputeShader(
+	static UFVolumetricFXSDFComputeShaderLibrary_AsyncExecution* ExecuteBaseComputeShader(
 		UObject* WorldContextObject,
 		int32 VoxelCount,
 		TArray<FVector> VoxelPointLocation,
@@ -107,7 +105,7 @@ public:
 		float BoundsSize,
 		UTextureRenderTarget2D* SDFRenderTarget)
 	{
-		UMySimpleComputeShaderLibrary_AsyncExecution* Action = NewObject<UMySimpleComputeShaderLibrary_AsyncExecution>();
+		UFVolumetricFXSDFComputeShaderLibrary_AsyncExecution* Action = NewObject<UFVolumetricFXSDFComputeShaderLibrary_AsyncExecution>();
 		
 		Action->SDFRenderTarget = SDFRenderTarget;
 		Action->RegisterWithGameInstance(WorldContextObject);

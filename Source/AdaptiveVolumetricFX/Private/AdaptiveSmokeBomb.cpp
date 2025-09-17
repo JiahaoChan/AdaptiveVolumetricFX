@@ -10,8 +10,8 @@
 #include "EngineUtils.h"
 #include "Engine/TextureRenderTarget2D.h"
 
-#include "MySimpleComputeShader.h"
 #include "SpaceWeightMapVolume.h"
+#include "VolumetricFXSDFComputeShader.h"
 
 AAdaptiveSmokeBomb::AAdaptiveSmokeBomb()
 {
@@ -112,13 +112,14 @@ void AAdaptiveSmokeBomb::Explode()
 	}
 	
 	{
-		TArray<FVector3f> AllNodes;
+		TArray<FVector> AllNodes;
 		for (const FExplodeLayer& Layer : ExplodeLayers)
 		{
-			for (const FVector& Node : Layer.Nodes)
-			{
-				AllNodes.Add(FVector3f(Node));
-			}
+			AllNodes.Append(Layer.Nodes);
+			//for (const FVector& Node : Layer.Nodes)
+			//{
+				//AllNodes.Add(FVector3f(Node));
+			//}
 		}
 		if (!SmokeSDFTexture)
 		{
@@ -133,12 +134,11 @@ void AAdaptiveSmokeBomb::Explode()
 		}
 		
 		FVolumetircFXSDFCSParams Params;
-		Params.VoxelCount = AllNodes.Num();
 		Params.VoxelPointLocation = AllNodes;
 		Params.BoundsOrigin = GetActorLocation();
 		Params.BoundsSize = 500.0f;
 		Params.SDFTexture = SmokeSDFTexture;
 		
-		FMySimpleComputeShaderInterface::Dispatch(Params, nullptr);
+		FVolumetricFXSDFComputeShaderInterface::Dispatch(Params, nullptr);
 	}
 }
