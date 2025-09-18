@@ -176,7 +176,7 @@ void FVolumetricFXSDFComputeShaderInterface::DispatchRenderThread(FRHICommandLis
 			FTextureResource* TextureResource = Params.SDFTexture->GetResource();
 			check(TextureResource);
 			FRDGTextureRef SDFTextureRDG = GraphBuilder.RegisterExternalTexture(CreateRenderTarget(TextureResource->GetTexture2DRHI(), TEXT("VolumetricFXSDFTexture")));
-			PassParameters->SDFTexture = GraphBuilder.CreateUAV(SDFTextureRDG, ERDGUnorderedAccessViewFlags::None, PF_R16F);
+			PassParameters->SDFTexture = GraphBuilder.CreateUAV(SDFTextureRDG, ERDGUnorderedAccessViewFlags::None, PF_R32_FLOAT);
 			
 			FIntVector GroupCount = FComputeShaderUtils::GetGroupCount(FIntVector(8, 8, 1), FComputeShaderUtils::kGolden2DGroupSize);
 			GraphBuilder.AddPass(
