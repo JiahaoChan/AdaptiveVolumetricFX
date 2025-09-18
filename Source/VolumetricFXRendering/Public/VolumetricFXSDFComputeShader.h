@@ -12,21 +12,36 @@
 
 #include "VolumetricFXSDFComputeShader.generated.h"
 
-USTRUCT()
-struct VOLUMETRICFXRENDERING_API FVolumetircFXSDFCSParams
+// Todo
+USTRUCT(BlueprintType)
+struct FSubductionConeShape
+{
+	GENERATED_BODY()
+	
+	FVector3f Axis;
+	FVector3f Point;
+	float Height;
+	float BottomRadius;
+	float TopRadius;
+};
+
+// Todo
+USTRUCT(BlueprintType)
+struct FVolumetircFXSDFCSParams
 {
 	GENERATED_BODY()
 	
 	int32 Output;
 	
 	// Input
-	TArray<FVector> VoxelPointLocations;
-	FVector BoundsOrigin;
+	TArray<FVector3f> VoxelPointLocations;
 	float BoundsSize;
-	uint32 LayerBaseSize;
+	uint32 LayerResolution;
+	uint32 LayerTilesCount;
 	float InnerRadius;
 	float OuterRadius;
 	float FactorK;
+	TArray<FSubductionConeShape> ConeShapes;
 	
 	// Output
 	TObjectPtr<UTextureRenderTarget2D> SDFTexture;
@@ -34,11 +49,11 @@ struct VOLUMETRICFXRENDERING_API FVolumetircFXSDFCSParams
 	FVolumetircFXSDFCSParams()
 	{
 		Output = 0;
-		BoundsOrigin = FVector::ZeroVector;
 		BoundsSize = 0.0f;
-		LayerBaseSize = 8;
-		InnerRadius = 100.0f;
-		OuterRadius = 200.0f;
+		LayerResolution = 64;
+		LayerTilesCount = 8;
+		InnerRadius = 50.0f;
+		OuterRadius = 125.0f;
 		FactorK = 0.5f;
 		SDFTexture = nullptr;
 	}
@@ -87,10 +102,7 @@ public:
 	virtual void Activate() override
 	{
 		FVolumetircFXSDFCSParams Params;
-		//Params.VoxelPointLocation = VoxelPointLocation;
-		Params.BoundsOrigin = BoundsOrigin;
 		Params.BoundsSize = BoundsSize;
-		
 		Params.SDFTexture = SDFRenderTarget;
 		
 		FVolumetricFXSDFComputeShaderInterface::Dispatch(Params, [this](int OutputVal)
@@ -121,9 +133,8 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FOnMySimpleComputeShaderLibrary_AsyncExecutionCompleted Completed;
 	
-	int32 VoxelCount;
-	TArray<FVector> VoxelPointLocation;
-	FVector BoundsOrigin;
+	uint32 VoxelCount;
+	TArray<FVector3f> VoxelPointLocation;
 	float BoundsSize;
 	
 	TObjectPtr<UTextureRenderTarget2D> SDFRenderTarget;

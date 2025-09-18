@@ -40,6 +40,12 @@ protected:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Smoke Bomb")
 	float BoundsSize;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Smoke Bomb")
+	int32 LayerResolution;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Smoke Bomb")
+	int32 LayerTilesCount;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Smoke Bomb")
 	float InnerRadius;
@@ -49,6 +55,9 @@ protected:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Smoke Bomb")
 	float FactorK;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Smoke Bomb")
+	float ConeRadius;
 	
 public:
 	AAdaptiveSmokeBomb();

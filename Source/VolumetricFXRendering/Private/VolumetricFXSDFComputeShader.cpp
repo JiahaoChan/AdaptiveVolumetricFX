@@ -63,12 +63,14 @@ public:
 		
 		SHADER_PARAMETER(uint32, VoxelCount)
 		SHADER_PARAMETER_RDG_BUFFER_SRV(Buffer<FVector3f>, VoxelPointLocations)
-		SHADER_PARAMETER(FVector3f, BoundsOrigin)
 		SHADER_PARAMETER(float, BoundsSize)
-		SHADER_PARAMETER(uint32, LayerBaseSize)
+		SHADER_PARAMETER(uint32, LayerResolution)
+		SHADER_PARAMETER(uint32, LayerTilesCount)
 		SHADER_PARAMETER(float, InnerRadius)
 		SHADER_PARAMETER(float, OuterRadius)
 		SHADER_PARAMETER(float, FactorK)
+		SHADER_PARAMETER(uint32, ConeCount)
+		SHADER_PARAMETER_RDG_BUFFER_SRV(Buffer<FSubductionConeShape>, ConeShapes)
 		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D<float>, SDFTexture)
 	END_SHADER_PARAMETER_STRUCT()
 	
@@ -98,9 +100,7 @@ public:
 		
 		const FPermutationDomain PermutationVector(Parameters.PermutationId);
 		
-		OutEnvironment.SetDefine(TEXT("NUMTHREADSX"), 8);
-		OutEnvironment.SetDefine(TEXT("NUMTHREADSY"), 8);
-		OutEnvironment.SetDefine(TEXT("NUMTHREADSZ"), 1);
+		OutEnvironment.SetDefine(TEXT("THREADTILES"), 8);
 		
 		OutEnvironment.SetDefine(TEXT("SDF_BLEND_FUNCTION"), PermutationVector.Get<FSDFBlendFunctionMethod>());
 		
@@ -150,24 +150,28 @@ void FVolumetricFXSDFComputeShaderInterface::DispatchRenderThread(FRHICommandLis
 			FRDGBufferRef OutputBuffer = GraphBuilder.CreateBuffer(FRDGBufferDesc::CreateBufferDesc(sizeof(int32), 1), TEXT("OutputBuffer"));
 			PassParameters->Output = GraphBuilder.CreateUAV(FRDGBufferUAVDesc(OutputBuffer, PF_R32_SINT));
 			
-			TArray<FVector3f> Temp;
-			for (const FVector& Value : Params.VoxelPointLocations)
 			{
-				Temp.Add(FVector3f(Value));
+                const void* RawData = (void*)Params.VoxelPointLocations.GetData();
+                uint32 NumInputs = Params.VoxelPointLocations.Num();
+                uint32 InputSize = sizeof(FVector3f);
+                FRDGBufferRef VoxelPointLocationsBuffer = CreateUploadBuffer(GraphBuilder, TEXT("VoxelPointLocationsBuffer"), InputSize, NumInputs, RawData, InputSize * NumInputs);
+                PassParameters->VoxelPointLocations = GraphBuilder.CreateSRV(FRDGBufferSRVDesc(VoxelPointLocationsBuffer, PF_R32G32B32F));
+                PassParameters->VoxelCount = NumInputs;
 			}
-			const void* RawData = (void*)Temp.GetData();
-			uint32 NumInputs = Params.VoxelPointLocations.Num();
-			uint32 InputSize = sizeof(FVector3f);
-			FRDGBufferRef VoxelPointLocationsBuffer = CreateUploadBuffer(GraphBuilder, TEXT("VoxelPointLocationsBuffer"), InputSize, NumInputs, RawData, InputSize * NumInputs);
-			PassParameters->VoxelPointLocations = GraphBuilder.CreateSRV(FRDGBufferSRVDesc(VoxelPointLocationsBuffer, PF_R32G32B32F));
 			
-			PassParameters->VoxelCount = NumInputs;
-			PassParameters->BoundsOrigin = FVector3f(Params.BoundsOrigin);
 			PassParameters->BoundsSize = Params.BoundsSize;
-			PassParameters->LayerBaseSize = Params.LayerBaseSize;
+			PassParameters->LayerResolution = Params.LayerResolution;
+			PassParameters->LayerTilesCount = Params.LayerTilesCount;
 			PassParameters->InnerRadius = Params.InnerRadius;
 			PassParameters->OuterRadius = Params.OuterRadius;
 			PassParameters->FactorK = Params.FactorK;
+			
+			{
+				uint32 NumInputs = Params.ConeShapes.Num();
+				FRDGBufferRef ConeShapesBuffer = CreateStructuredBuffer(GraphBuilder, TEXT("ConeShapesBuffer"), Params.ConeShapes);
+				PassParameters->ConeShapes = GraphBuilder.CreateSRV(FRDGBufferSRVDesc(ConeShapesBuffer));
+				PassParameters->ConeCount = NumInputs;
+			}
 			
 			FTextureResource* TextureResource = Params.SDFTexture->GetResource();
 			check(TextureResource);
@@ -176,7 +180,7 @@ void FVolumetricFXSDFComputeShaderInterface::DispatchRenderThread(FRHICommandLis
 			
 			FIntVector GroupCount = FComputeShaderUtils::GetGroupCount(FIntVector(8, 8, 1), FComputeShaderUtils::kGolden2DGroupSize);
 			GraphBuilder.AddPass(
-				RDG_EVENT_NAME("ExecuteMySimpleComputeShader"),
+				RDG_EVENT_NAME("ExecuteVolumetricFXSDFComputeShader"),
 				PassParameters,
 				ERDGPassFlags::AsyncCompute,
 				[&PassParameters, ComputeShader, GroupCount](FRHIComputeCommandList& RHICmdList)

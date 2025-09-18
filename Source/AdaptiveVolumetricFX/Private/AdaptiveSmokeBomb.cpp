@@ -25,9 +25,13 @@ AAdaptiveSmokeBomb::AAdaptiveSmokeBomb()
 	SmokeSDFTexture = nullptr;
 	
 	BoundsSize = 500.0f;
+	LayerResolution = 64;
+	LayerTilesCount = 8;
 	InnerRadius = 100.0f;
 	OuterRadius = 200.0f;
 	FactorK = 0.5f;
+	
+	ConeRadius = 50.0f;
 }
 
 void AAdaptiveSmokeBomb::BeginPlay()
@@ -117,14 +121,13 @@ void AAdaptiveSmokeBomb::Explode()
 	}
 	
 	{
-		TArray<FVector> AllNodes;
+		TArray<FVector3f> AllNodes;
 		for (const FExplodeLayer& Layer : ExplodeLayers)
 		{
-			AllNodes.Append(Layer.Nodes);
-			//for (const FVector& Node : Layer.Nodes)
-			//{
-				//AllNodes.Add(FVector3f(Node));
-			//}
+			for (const FVector& Node : Layer.Nodes)
+			{
+				AllNodes.Add(FVector3f(Node - GetActorLocation()));
+			}
 		}
 		if (!SmokeSDFTexture)
 		{
@@ -134,16 +137,24 @@ void AAdaptiveSmokeBomb::Explode()
 		
 		FVolumetircFXSDFCSParams Params;
 		Params.VoxelPointLocations = AllNodes;
-		Params.BoundsOrigin = GetActorLocation();
 		Params.BoundsSize = BoundsSize;
-		Params.LayerBaseSize = 8;
+		Params.LayerResolution = LayerResolution;
+		Params.LayerTilesCount = LayerTilesCount;
 		Params.InnerRadius = InnerRadius;
 		Params.OuterRadius = OuterRadius;
 		Params.FactorK = FactorK;
 		Params.SDFTexture = SmokeSDFTexture;
 		
+		FSubductionConeShape BulletShape;
+		BulletShape.Axis = FVector3f(0.0f, 0.0f, 1.0f);
+		BulletShape.Point = FVector3f(0.0f, 0.0f, -400.0f);
+		BulletShape.Height = 800.0f;
+		BulletShape.BottomRadius = ConeRadius;
+		BulletShape.TopRadius = ConeRadius;
+		Params.ConeShapes.Add(BulletShape);
+		
 		FVolumetricFXSDFComputeShaderInterface::Dispatch(Params, nullptr);
 	}
 	
-	ExplodeWithAnim(0);
+	//ExplodeWithAnim(0);
 }
